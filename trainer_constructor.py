@@ -6,12 +6,13 @@ import os
 import torch.cuda
 from omegaconf import OmegaConf
 from pytorch_lightning.loggers import WandbLogger
+from typing import Tuple
 
 
 def construct_trainer(
     cfg: OmegaConf,
     wandb_logger: pl.loggers.WandbLogger,
-) -> tuple[pl.Trainer, pl.Callback]:
+) -> Tuple[pl.Trainer, pl.Callback]:
     # Set up precision
     if cfg.train.mixed_precision:
         precision = 16

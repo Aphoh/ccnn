@@ -148,3 +148,5 @@ cython_debug/
 
 .vscode/
 sweeps
+
+sbatch_submit.sh

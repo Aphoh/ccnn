@@ -9,6 +9,7 @@ import ckconv
 from dataset_constructor import construct_datamodule
 from model_constructor import construct_model
 from trainer_constructor import construct_trainer
+import evaluation
 
 from functools import partial
 from hook_registration import register_hooks
@@ -161,6 +162,12 @@ def main(
         datamodule=datamodule,
     )
 
+    # evaluation with the ENI code
+    evaluation.evaluate_main(
+        cfg=cfg, 
+        datamodule=datamodule,
+        eval_model=model
+    )
 
 def verify_config(cfg: OmegaConf):
     if cfg.train.distributed and cfg.train.avail_gpus < 2:

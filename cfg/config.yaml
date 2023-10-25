@@ -13,7 +13,7 @@ net:
   no_hidden: 140
   no_blocks: 4
   no_stages: -1
-  data_dim: 0                    # Should be overridden automatically
+  data_dim: 1                    # Should be overridden automatically
   dropout: 0.0
   dropout_in: 0.0
   dropout_type: Dropout1d
@@ -30,7 +30,7 @@ kernel:
   type: "MAGNet"
   no_hidden: 32
   no_layers: 3
-  omega_0: 2386.49
+  omega_0: 2386.49    ## look at where this is used in the code.... they use this for MNIST of 700
   input_scale: 0.0
   bias: True
   size: "same"
@@ -65,8 +65,8 @@ dataset:
   augment: True
   params:
     end_cutoff_timesteps: 8 # Used for Lucas' dataset
-    new_machine: east
-    case_number: 8
+    new_machine: cmod
+    case_number: 12
     taus:
       cmod: 10
       d3d: 75
@@ -78,7 +78,7 @@ dataset:
       disrupt_trim_prob: 0.0
       nondisr_cut_min: 5
       nondisr_cut_prob: 0.3
-      tau_trim_prob: 0.0
+      tau_trim_prob: 0.1
       tau_trim_max: 10
     modelnet:
       num_nodes: -1         # For ModelNet. Number of nodes to sample.
@@ -86,11 +86,12 @@ dataset:
       voxelize: False       # For ModelNet. Voxelize the dataset before training.
       voxel_scale: -1       # For ModelNet. Voxelization scale.
       modelnet_name: "40"   # For ModelNet, either 10 or 40.
+    v_loop_smoother: 5
 # training
 train:
   do: True
   mixed_precision: False 
-  epochs: 210
+  epochs: 210 ## TODO: change back to 210 for real training 
   batch_size: 50
   grad_clip: 0.0
   max_epochs_no_improvement: 40
@@ -127,6 +128,9 @@ scheduler:
 test:
   batch_size_multiplier: 1
   before_train: False
+  eval_high_thresh: .5
+  eval_low_thresh: .5
+  eval_hysteresis: 3
 # wandb logging
 wandb:
   project: ccnn

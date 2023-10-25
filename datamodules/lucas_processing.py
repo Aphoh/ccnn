@@ -4,6 +4,8 @@ from sklearn.preprocessing import RobustScaler
 import random
 from typing import List
 import math
+import pandas as pd 
+import random
 import collections
 
 
@@ -35,6 +37,7 @@ class ModelReadyDataset(Dataset):
         len_aug: bool = False,
         seed: int = 42,
         len_aug_args: dict = {},
+        v_loop_smoother = 5,
     ):
         self.len_aug = len_aug
         self.len_aug_args = len_aug_args
@@ -47,26 +50,30 @@ class ModelReadyDataset(Dataset):
         self.machines = []
 
         for shot, ind in zip(shots, inds):
-            shot_df = shot["data"]
-            o = torch.tensor(
-                [shot["label"] * machine_hyperparameters[shot["machine"]]],
-                dtype=torch.float32,
-            )
+            if 15 <= len(shot["data"]) <= max_length:
+                shot_df = shot["data"]
 
-            shot_end = 0
-            if end_cutoff:
-                shot_end = int(len(shot_df) * (end_cutoff))
-            elif end_cutoff_timesteps:
-                shot_end = int(len(shot_df) - end_cutoff_timesteps)
-            else:
-                raise Exception(
-                    "Must provide either end_cutoff or end_cutoff_timesteps"
+                # TODO: figure out later! 
+
+                # smooth v_loop -- hyperparam sweep w 1 through 15? 
+                # v_loop = pd.Series(shot["data"][:, 4])
+                # shot_df["v_loop"] = shot_df["v_loop"].rolling(v_loop_smoother).mean()
+                # first_valid_index = shot_df["v_loop"].first_valid_index()
+                # first_valid_mean = shot_df["v_loop"].loc[first_valid_index]
+                # shot_df["v_loop"].fillna(first_valid_mean, inplace=True)
+
+                o = torch.tensor(
+                    [shot["label"] * machine_hyperparameters[shot["machine"]]],
+                    dtype=torch.float32,
                 )
 
-            d = torch.tensor(shot_df[:shot_end], dtype=torch.float32)
+                shot_end = 0
+                shot_end = int(len(shot_df) - end_cutoff_timesteps)
 
-            # test if the shot's length is between 15 and max_length
-            if 15 <= len(d) <= max_length:
+                d = torch.tensor(shot_df[:shot_end], dtype=torch.float32)
+
+                # test if the shot's length is between 15 and max_length
+
                 self.xs.append(d)
                 self.ys.append(o)
                 self.metas.append(
@@ -175,8 +182,10 @@ def get_train_test_indices_from_Jinxiang_cases(
     """Get train and test indices for Jinxiang's cases.
 
     Args:
-        dataset (object): Data to split.
-        case_number (int): Case number.
+        dataset (object): Dictionary to split of form: {"label": int, "data": np.array, "machine": str}
+        case_number (int): Case number. 
+            Cases 1 - 12 refer to Jinxiang's cases
+            Case 13 is Francesco's case of only training and testing on non-disruptions. 
         new_machine (str): Name of the new machine.
 
     Returns:
@@ -326,3 +335,34 @@ def length_augmentation(
 
     else:
         return x, y, length
+
+
+def train_test_val_inds_from_file(
+        case_number,
+        testing,
+        ):
+    """Get train, test, and validation indices for a dataset. 
+    Separating this function out now so that the same indices 
+    can be used for all curriculum steps.
+
+    Args:
+        case_number (int): Case number.
+        testing (bool): Whether to use a small subset of the data for testing.
+
+    Returns:
+        train_inds (list): List of training indices.
+        test_inds (list): List of testing indices.
+        val_inds (list): List of validation indices.
+    """
+
+    train_inds = pd.read_csv(f"train_inds_case{case_number}.csv")["dataset_index"].tolist()
+    test_inds = pd.read_csv(f"holdout_inds_case{case_number}.csv")["dataset_index"].tolist()
+    val_inds = pd.read_csv(f"val_inds_case{case_number}.csv")["dataset_index"].tolist()
+
+    if testing:
+        train_inds = train_inds[:150]
+        test_inds = test_inds[:150]
+        val_inds = val_inds[:150]
+
+    return train_inds, test_inds, val_inds
+

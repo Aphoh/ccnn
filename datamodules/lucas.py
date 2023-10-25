@@ -12,12 +12,13 @@ from tqdm import tqdm
 import os
 
 
+# TODO: check output of collate fn is comparable to the output of my collate fn
+
 def collate_fn(batch):
     inputs, labels, lengths = zip(*batch)
     inputs = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True).transpose(1, 2)
     labels = torch.tensor(labels)
     return inputs, labels, lengths
-
 
 class StreamingProgressResponse:
     def __init__(self, response, progress):
@@ -35,7 +36,7 @@ class LucasDataModule(pl.LightningDataModule):
     DataModule for Lucas' fusion dataset.
     """
 
-    DATA_FILENAME = "lucas_data_f32.pickle"
+    DATA_FILENAME = "ccnn_dataset.pickle"
 
     # TODO: add sample rate here
     def __init__(
@@ -127,30 +128,38 @@ class LucasDataModule(pl.LightningDataModule):
         # Load data from file
         f = open(os.path.join(self.data_dir, self.DATA_FILENAME), "rb")
         data = pickle.load(f)
+        self.original_data = data
 
-        (
-            train_inds,
-            test_inds,
-        ) = lucas_processing.get_train_test_indices_from_Jinxiang_cases(
-            dataset=data,
+        # (
+        #     train_inds,
+        #     test_inds,
+        # ) = lucas_processing.get_train_test_indices_from_Jinxiang_cases(
+        #     dataset=data,
+        #     case_number=self.case_number,
+        #     new_machine=self.new_machine,
+        #     seed=self.seed
+        # )
+
+        # if self.debug:
+        #     train_inds = train_inds[-80:]
+        #     test_inds = test_inds[:20]
+
+        # n_val = int(round(len(train_inds) * self.val_percent)) ## maybe cut these off the test set instead? 
+        # val_shots = [data[i] for i in train_inds[:n_val]]
+
+        train_inds, test_inds, val_inds = lucas_processing.train_test_val_inds_from_file(
             case_number=self.case_number,
-            new_machine=self.new_machine,
-            seed=self.seed,
+            testing=self.debug
         )
-
-        if self.debug:
-            train_inds = train_inds[:80]
-            test_inds = test_inds[:20]
-
-        n_val = int(round(len(train_inds) * self.val_percent))
 
         # make sure there are no duplicate indices
         assert len(set(train_inds)) == len(train_inds)
         assert len(set(test_inds)) == len(test_inds)
-
-        val_shots = [data[i] for i in train_inds[:n_val]]
-        train_shots = [data[i] for i in train_inds[n_val:]]
+        train_shots = [data[i] for i in train_inds]
         test_shots = [data[i] for i in test_inds]
+        val_shots = [data[i] for i in val_inds]
+
+        self.test_inds = test_inds
 
         self.train_dataset = lucas_processing.ModelReadyDataset(
             shots=train_shots,
@@ -158,9 +167,9 @@ class LucasDataModule(pl.LightningDataModule):
             machine_hyperparameters=self.machine_hyperparameters,
             end_cutoff=self.end_cutoff,
             end_cutoff_timesteps=self.end_cutoff_timesteps,
-            taus=self.taus,
             len_aug=self.augment,
             len_aug_args=self.len_aug_args,
+            taus=self.taus,
         )
         self.val_dataset = lucas_processing.ModelReadyDataset(
             shots=val_shots,
